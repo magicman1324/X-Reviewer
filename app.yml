@@ -1,0 +1,27 @@
+# GitHub App Manifest for X-Reviewer
+# Use this to register your GitHub App at:
+# https://github.com/settings/apps/new
+#
+# Or create via manifest flow:
+# https://github.com/settings/apps/new?url=https://<your-domain>/api/github/manifest
+
+name: X-Reviewer
+description: AI-powered code review assistant for GitHub pull requests
+url: https://github.com/magicman1324/X-Reviewer
+hook_attributes:
+  url: https://your-domain.com/api/github/webhooks
+  active: true
+public: true
+
+default_events:
+  - pull_request
+  - pull_request_review
+  - pull_request_review_comment
+  - issue_comment
+  - installation
+
+default_permissions:
+  issues: write
+  pull_requests: write
+  metadata: read
+  contents: read
