@@ -1,0 +1,23 @@
+{
+  "name": "xengineer2",
+  "version": "1.0.0",
+  "description": "七牛云XEngineer2 AI PR Review 助手",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/magicman1324/X-Reviewer.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/magicman1324/X-Reviewer/issues"
+  },
+  "homepage": "https://github.com/magicman1324/X-Reviewer#readme",
+  "dependencies": {
+    "xlsx": "^0.18.5"
+  }
+}
