@@ -202,6 +202,155 @@ console.log('\nTest 8: Score labels at boundaries');
   }
 }
 
+// ------- Test 9: Long risk table folds with <details> -------
+console.log('\nTest 9: Long risk table folds with <details>');
+{
+  const manyRisks = Array.from({ length: 7 }, (_, i) => ({
+    level: i < 2 ? RiskLevel.Critical : RiskLevel.Warning,
+    file: `src/module${i}.ts`,
+    line: 10 + i,
+    title: `Issue #${i}`,
+    description: `Description ${i}`,
+    suggestion: `Fix ${i}`,
+    confidence: 0.8,
+    isFalsePositiveLikely: false,
+  }));
+  const report = makeReport({ risks: manyRisks });
+  const md = formatReportComment(report);
+  assert('uses details tag for > 5 risks', md.includes('<details open>') && md.includes('7 项'));
+  assert('closes details tag', md.includes('</details>'));
+}
+
+// ------- Test 10: Short risk table no folding -------
+console.log('\nTest 10: Short risk table no folding');
+{
+  const report = makeReport(); // 2 risks
+  const md = formatReportComment(report);
+  assert('no details tag for ≤ 5 risks', !md.includes('<details'));
+  assert('uses normal header', md.includes('### ⚠️ 风险代码识别'));
+}
+
+// ------- Test 11: Many fix suggestions fold -------
+console.log('\nTest 11: Many fix suggestions fold');
+{
+  const manyFixes = Array.from({ length: 4 }, (_, i) => ({
+    level: RiskLevel.Warning,
+    file: `src/file${i}.ts`,
+    line: i + 1,
+    title: `Issue ${i}`,
+    description: `Desc ${i}`,
+    suggestion: `Suggestion ${i}`,
+    fixCode: `// fix for ${i}\nconst x = ${i};`,
+    confidence: 0.7,
+    isFalsePositiveLikely: false,
+  }));
+  const report = makeReport({ risks: manyFixes });
+  const md = formatReportComment(report);
+  assert('fix section folded for > 2', md.includes('<details>') && md.includes('修复建议'));
+}
+
+// ------- Test 12: Few fix suggestions no folding -------
+console.log('\nTest 12: Few fix suggestions no folding');
+{
+  const oneFix = [
+    {
+      level: RiskLevel.Critical,
+      file: 'src/app.ts',
+      line: 5,
+      title: 'Single issue',
+      description: 'Only one',
+      suggestion: 'Fix it',
+      fixCode: '// fix',
+      confidence: 0.9,
+      isFalsePositiveLikely: false,
+    },
+  ];
+  const report = makeReport({ risks: oneFix });
+  const md = formatReportComment(report);
+  assert('single fix uses ### header', md.includes('### 💡 修复建议'));
+}
+
+// ------- Test 13: Language detection from file extension -------
+console.log('\nTest 13: Language detection from file extension');
+{
+  const risks = [
+    { level: RiskLevel.Warning, file: 'src/app.py', line: 1, title: 't', description: 'd', suggestion: 's', fixCode: 'print(1)', confidence: 0.5, isFalsePositiveLikely: false },
+    { level: RiskLevel.Warning, file: 'main.go', line: 2, title: 't', description: 'd', suggestion: 's', fixCode: 'fmt.Println()', confidence: 0.5, isFalsePositiveLikely: false },
+    { level: RiskLevel.Warning, file: 'lib.rs', line: 3, title: 't', description: 'd', suggestion: 's', fixCode: 'fn main() {}', confidence: 0.5, isFalsePositiveLikely: false },
+  ];
+  const report = makeReport({ risks });
+  const md = formatReportComment(report);
+  assert('python code block', md.includes('```python'));
+  assert('go code block', md.includes('```go'));
+  assert('rust code block', md.includes('```rust'));
+}
+
+// ------- Test 14: Confidence badges in risk table -------
+console.log('\nTest 14: Confidence badges');
+{
+  const risks = [
+    { level: RiskLevel.Critical, file: 'src/a.ts', line: 1, title: 'High conf', description: 'd', suggestion: 's', confidence: 0.95, isFalsePositiveLikely: false },
+    { level: RiskLevel.Warning, file: 'src/b.ts', line: 2, title: 'Low conf', description: 'd', suggestion: 's', confidence: 0.3, isFalsePositiveLikely: false },
+  ];
+  const report = makeReport({ risks });
+  const md = formatReportComment(report);
+  assert('high confidence badge', md.includes('🎯'));
+  assert('low confidence badge', md.includes('🤔'));
+}
+
+// ------- Test 15: Description in fix code section -------
+console.log('\nTest 15: Description in fix code section');
+{
+  const risks = [
+    {
+      level: RiskLevel.Critical, file: 'src/x.ts', line: 10, title: 'Bug',
+      description: 'This is a detailed description of the bug.',
+      suggestion: 'Fix it',
+      fixCode: 'const x = 1;',
+      confidence: 0.9, isFalsePositiveLikely: false,
+    },
+  ];
+  const report = makeReport({ risks });
+  const md = formatReportComment(report);
+  assert('description blockquote present', md.includes('> This is a detailed description'));
+}
+
+// ------- Test 16: Large code block folding -------
+console.log('\nTest 16: Large code block folding');
+{
+  const longCode = Array.from({ length: 25 }, (_, i) => `// line ${i + 1}`).join('\n');
+  const risks = [
+    { level: RiskLevel.Critical, file: 'src/big.ts', line: 1, title: 'Big', description: 'Big code', suggestion: 's', fixCode: longCode, confidence: 0.9, isFalsePositiveLikely: false },
+  ];
+  const report = makeReport({ risks });
+  const md = formatReportComment(report);
+  assert('code fold for >20 lines', md.includes('📎 展开代码'));
+  assert('shows line count', md.includes('25 行'));
+}
+
+// ------- Test 17: Fold section counts items correctly -------
+console.log('\nTest 17: Fold headers show item counts');
+{
+  const sixRisks = Array.from({ length: 6 }, (_, i) => ({
+    level: RiskLevel.Warning, file: `src/f${i}.ts`, line: i, title: 't', description: 'd', suggestion: 's', fixCode: `fix${i}`, confidence: 0.5, isFalsePositiveLikely: false,
+  }));
+  const report = makeReport({ risks: sixRisks });
+  const md = formatReportComment(report);
+  assert('risk count in summary', md.includes('6 项'));
+  assert('fix count in summary', md.includes('6 项'));
+}
+
+// ------- Test 18: Unknown extension defaults to no lang tag -------
+console.log('\nTest 18: Unknown extension defaults to empty language');
+{
+  const risks = [
+    { level: RiskLevel.Warning, file: 'Makefile', line: 1, title: 't', description: 'd', suggestion: 's', fixCode: 'all: build', confidence: 0.5, isFalsePositiveLikely: false },
+  ];
+  const report = makeReport({ risks });
+  const md = formatReportComment(report);
+  assert('empty lang block for unknown ext', md.includes('```\nall: build'));
+}
+
 // ------- Summary -------
 console.log(`\n${'='.repeat(40)}`);
 console.log(`Results: ${passed} passed, ${failed} failed`);
