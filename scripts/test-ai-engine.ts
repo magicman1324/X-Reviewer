@@ -1,4 +1,4 @@
-import { parseReviewReport } from '../src/services/ai-engine.js';
+import { parseReviewReport } from '../src/services/output-parser.js';
 import { DeepSeekProvider } from '../src/providers/deepseek.js';
 import { TriggerSource, type ReviewRequest, type FilteredDiff } from '../src/types/index.js';
 
