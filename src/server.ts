@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
 import { createProbot, createNodeMiddleware } from 'probot';
 import appFn from './index.js';
+import type { AppConfig } from './types/index.js';
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -19,7 +20,7 @@ function getEnvNumber(name: string): number {
   return num;
 }
 
-function loadConfig() {
+function loadConfig(): AppConfig {
   return {
     appId: getEnvNumber('APP_ID'),
     privateKey: requireEnv('PRIVATE_KEY'),
