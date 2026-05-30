@@ -2,6 +2,8 @@ import { createServer } from 'node:http';
 import { createProbot, createNodeMiddleware } from 'probot';
 import appFn from './index.js';
 import type { AppConfig } from './types/index.js';
+import { Logger, setLogger } from './utils/logger.js';
+import { handleError, registerGlobalErrorHandlers } from './utils/error-handler.js';
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -33,6 +35,13 @@ function loadConfig(): AppConfig {
 async function main() {
   const config = loadConfig();
 
+  // Initialize structured logger
+  const logger = new Logger({ level: config.logLevel as 'info' | 'debug' | 'trace' | 'warn' | 'error' | 'fatal', json: process.env.LOG_JSON === 'true' });
+  setLogger(logger);
+
+  // Register global error handlers
+  const cleanupHandlers = registerGlobalErrorHandlers();
+
   const probot = createProbot({
     overrides: {
       appId: config.appId,
@@ -51,7 +60,16 @@ async function main() {
     // Health check — no auth required
     if (req.url === '/health' && req.method === 'GET') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ status: 'ok', uptime: process.uptime() }));
+      const memUsage = process.memoryUsage();
+      res.end(JSON.stringify({
+        status: 'ok',
+        uptime: process.uptime(),
+        memory: {
+          heapUsedMB: Math.round(memUsage.heapUsed / 1024 / 1024),
+          heapTotalMB: Math.round(memUsage.heapTotal / 1024 / 1024),
+          rssMB: Math.round(memUsage.rss / 1024 / 1024),
+        },
+      }));
       return;
     }
 
@@ -64,15 +82,32 @@ async function main() {
   });
 
   server.listen(config.port, () => {
-    probot.log.info(`X-Reviewer server listening on port ${config.port}`);
-    probot.log.info(`Webhook endpoint: http://localhost:${config.port}/api/github/webhooks`);
-    probot.log.info(`Health check: http://localhost:${config.port}/health`);
+    logger.info(`X-Reviewer server listening on port ${config.port}`);
+    logger.info(`Webhook endpoint: http://localhost:${config.port}/api/github/webhooks`);
+    logger.info(`Health check: http://localhost:${config.port}/health`);
   });
 
   // Graceful shutdown
   const shutdown = async (signal: string) => {
-    probot.log.info(`Received ${signal}, shutting down...`);
-    server.close(() => process.exit(0));
+    logger.info(`Received ${signal}, initiating graceful shutdown...`);
+
+    // Stop accepting new connections
+    server.close(() => {
+      logger.info('HTTP server closed');
+    });
+
+    // Force exit after 10s if graceful shutdown hangs
+    const forceExit = setTimeout(() => {
+      logger.warn('Graceful shutdown timed out, forcing exit');
+      process.exit(1);
+    }, 10_000);
+
+    // Allow forceExit timer to be cancelled by clean exit
+    forceExit.unref();
+
+    cleanupHandlers();
+    logger.info('Shutdown complete');
+    process.exit(0);
   };
 
   process.on('SIGTERM', () => shutdown('SIGTERM'));
@@ -80,6 +115,7 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error('Failed to start server:', err);
+  const classified = handleError(err, { phase: 'startup' });
+  console.error(`Fatal startup error [${classified.category}]: ${classified.message}`);
   process.exit(1);
 });
