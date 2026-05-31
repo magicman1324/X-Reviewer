@@ -2,7 +2,7 @@
 
 AI-powered code review assistant for GitHub — built on Probot + DeepSeek for the XEngineer Summer Camp.
 
-**Pre-configured, zero-setup.** All API keys and credentials are baked in. Clone, install, run — the app posts structured review reports directly in PR threads with risk tables, fix suggestions, security scans, and quality scoring.
+**Pre-configured, zero-setup.** All API keys are baked into `src/defaults.ts`. Clone, install, run — no configuration needed. The app posts structured review reports directly in PR threads with risk tables, fix suggestions, security scans, and quality scoring.
 
 ## Quick Start
 
@@ -16,12 +16,10 @@ npm install
 npm run dev
 ```
 
-The server starts on port 3000. All credentials (DeepSeek API, GitHub App) are pre-configured in `.env` — no setup required.
+Credentials are hardcoded in `src/defaults.ts`. To override, set environment variables or create a `.env` file (see `.env.example`).
 
 ```bash
 curl http://localhost:3000/health
-# {"status":"ok","uptime":12.3,"memory":{"heapUsedMB":45,"heapTotalMB":64,"rssMB":92}}
-```
 
 ## Architecture
 
@@ -60,7 +58,7 @@ GitHub Webhook → Probot → Review Queue → AI Engine (DeepSeek v4-pro)
 
 ## Configuration
 
-The `.env` file is pre-configured for evaluation. To use your own credentials, edit these values:
+Credentials are baked into `src/defaults.ts` — no setup needed. To use your own credentials, set these environment variables (or create a `.env` file):
 
 | Variable | Description |
 |----------|-------------|
