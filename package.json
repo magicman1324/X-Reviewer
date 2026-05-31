@@ -6,14 +6,14 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "dev": "tsx src/server.ts",
-    "start": "node dist/server.js",
+    "dev": "tsx --env-file=.env src/server.ts",
+    "start": "node --env-file=.env dist/server.js",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
     "format": "prettier --write \"src/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit",
-    "test": "echo \"No tests yet\" && exit 0"
+    "test": "tsx --env-file=.env scripts/test-user-handler.ts"
   },
   "repository": {
     "type": "git",

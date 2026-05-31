@@ -1,5 +1,6 @@
 import type { GitHubClient } from '../utils/github-client.js';
 import type { ReviewReport } from '../types/index.js';
+import type { BoostedReport, SignalQuality, AlertCluster } from './signal-booster.js';
 
 const PLACEHOLDERS = [
   '🤖 *X-Reviewer is scanning the diff with laser focus...*',
@@ -43,7 +44,7 @@ export class CommentManager {
   async publishReport(
     client: GitHubClient,
     commentId: number,
-    report: ReviewReport,
+    report: ReviewReport | BoostedReport,
   ): Promise<void> {
     const body = formatReportComment(report);
     for (let attempt = 0; attempt <= UPDATE_RETRY_MAX; attempt++) {
@@ -92,8 +93,8 @@ export class CommentManager {
   async orchestrate(
     client: GitHubClient,
     prNumber: number,
-    runReview: () => Promise<ReviewReport>,
-  ): Promise<ReviewReport> {
+    runReview: () => Promise<ReviewReport | BoostedReport>,
+  ): Promise<ReviewReport | BoostedReport> {
     const commentId = await this.postPlaceholder(client, prNumber);
     const cancelDelay = this.startDelayNotice(client, commentId);
 
@@ -158,20 +159,52 @@ function detectLanguage(filename: string): string {
  * Render a structured ReviewReport as a GitHub-flavored Markdown comment.
  * Long reports use <details>/<summary> folding to keep the PR thread readable.
  */
-export function formatReportComment(report: ReviewReport): string {
+export function formatReportComment(report: ReviewReport | BoostedReport): string {
   const lines: string[] = [];
 
   lines.push('## 🤖 X-Reviewer AI 代码评审报告');
   lines.push('');
+
+  // Signal quality badge (when available)
+  const sq = (report as BoostedReport).signalQuality as SignalQuality | undefined;
+  if (sq) {
+    const trustEmoji = sq.overallTrust >= 0.7 ? '🟢' : sq.overallTrust >= 0.4 ? '🟡' : '🔴';
+    lines.push(`> ${trustEmoji} **信号质量**: 信噪比 ${(sq.signalToNoiseRatio * 100).toFixed(0)}% | 可信度 ${(sq.overallTrust * 100).toFixed(0)}% | ${sq.duplicateCount} 项去重 | ${sq.suppressedCount} 项降噪`);
+    lines.push('');
+  }
+
   lines.push('### 📝 PR 变更总结');
   lines.push(report.summary);
   lines.push('');
 
-  if (report.risks.length > 0) {
-    const longRisk = report.risks.length > RISK_FOLD_THRESHOLD;
+  // Cluster overview (when available)
+  const clusters = (report as BoostedReport).clusters as AlertCluster[] | undefined;
+  if (clusters && clusters.length > 0 && clusters.some((c) => c.fileCount >= 2)) {
+    const multi = clusters.filter((c) => c.fileCount >= 2);
+    if (multi.length > 0) {
+      lines.push('<details><summary><b>📊 风险聚类</b> (' + multi.length + ' 组)</summary>');
+      lines.push('');
+      lines.push('| 类型 | 严重度 | 涉及文件数 |');
+      lines.push('|------|--------|-----------|');
+      for (const c of multi) {
+        const sev = c.severity === 'critical' ? '🔴' : '🟡';
+        lines.push(`| ${c.title} | ${sev} | ${c.fileCount} |`);
+      }
+      lines.push('');
+      lines.push('</details>');
+      lines.push('');
+    }
+  }
+
+  // Split risks into active and suppressed
+  const activeRisks = sq ? report.risks.filter((r: any) => !r.isNoise) : report.risks;
+  const suppressedRisks = sq ? report.risks.filter((r: any) => r.isNoise) : [];
+
+  if (activeRisks.length > 0) {
+    const longRisk = activeRisks.length > RISK_FOLD_THRESHOLD;
     if (longRisk) {
       lines.push(
-        `<details open><summary><b>⚠️ 风险代码识别</b> (${report.risks.length} 项)</summary>`,
+        `<details open><summary><b>⚠️ 风险代码识别</b> (${activeRisks.length} 项)</summary>`,
       );
       lines.push('');
     } else {
@@ -181,7 +214,7 @@ export function formatReportComment(report: ReviewReport): string {
     lines.push('| 级别 | 文件 | 行号 | 问题 | 建议 |');
     lines.push('|------|------|------|------|------|');
 
-    for (const risk of report.risks) {
+    for (const risk of activeRisks) {
       const icon = risk.level === 'critical' ? '🔴 高危' : '🟡 警告';
       const confidenceBadge =
         risk.confidence < 0.6 ? ' 🤔' : risk.confidence >= 0.9 ? ' 🎯' : '';
@@ -197,7 +230,7 @@ export function formatReportComment(report: ReviewReport): string {
     }
   }
 
-  const fixRisks = report.risks.filter((r) => r.fixCode);
+  const fixRisks = activeRisks.filter((r: any) => r.fixCode);
   if (fixRisks.length > 0) {
     const longFix = fixRisks.length > FIX_FOLD_THRESHOLD;
     if (longFix) {
@@ -244,6 +277,22 @@ export function formatReportComment(report: ReviewReport): string {
       lines.push('</details>');
       lines.push('');
     }
+  }
+
+  // Suppressed (noise) alerts in a collapsed section for transparency
+  if (suppressedRisks.length > 0) {
+    lines.push(`<details><summary><b>🔇 已抑制的噪音警报</b> (${suppressedRisks.length} 项)</summary>`);
+    lines.push('');
+    lines.push('| 文件 | 行号 | 问题 | 抑制原因 |');
+    lines.push('|------|------|------|----------|');
+    for (const risk of suppressedRisks as any[]) {
+      lines.push(
+        `| \`${risk.file}\` | L${risk.line} | ${escapeCell(risk.title)} | ${escapeCell(risk.noiseReason ?? '-')} |`,
+      );
+    }
+    lines.push('');
+    lines.push('</details>');
+    lines.push('');
   }
 
   lines.push('### 📊 评审评分');
