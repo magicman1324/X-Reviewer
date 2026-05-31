@@ -17,6 +17,7 @@ const DEFAULT_TIMEOUT_MS = 30_000;
  *
  * Uses native fetch (Node 18+) and AbortController for timeout.
  * Supports the /chat/completions endpoint with structured JSON output.
+ * max_tokens set to 16384 to accommodate verbose fixCode in reviews.
  */
 export class DeepSeekProvider implements AIProvider {
   readonly name = 'deepseek-v4-pro';
