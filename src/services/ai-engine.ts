@@ -41,6 +41,10 @@ export class AIEngine {
       `[AI] model=${result.provider} tokens=${result.usage.totalTokens} latency=${result.latencyMs}ms`,
     );
 
+    // Debug: log raw response for parser diagnostics
+    log.info(`[AI] raw first 500 chars: ${result.raw.slice(0, 500)}`);
+    log.info(`[AI] raw last 200 chars: ${result.raw.slice(-200)}`);
+
     return parseReviewReport(result.raw, request);
   }
 
