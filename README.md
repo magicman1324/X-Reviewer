@@ -2,7 +2,7 @@
 
 AI-powered code review assistant for GitHub — built on Probot + DeepSeek for the XEngineer Summer Camp.
 
-**Pre-configured, zero-setup.** All API keys are baked into `src/defaults.ts`. Clone, install, run — no configuration needed. The app posts structured review reports directly in PR threads with risk tables, fix suggestions, security scans, and quality scoring.
+**Zero-config, zero-setup.** All credentials are baked into `src/defaults.ts`. Clone, install, run — the app posts structured review reports directly in PR threads with risk tables, fix suggestions, security scans, signal quality metrics, and quality scoring.
 
 ## Quick Start
 
@@ -20,6 +20,8 @@ Credentials are hardcoded in `src/defaults.ts`. To override, set environment var
 
 ```bash
 curl http://localhost:3000/health
+# {"status":"ok","uptime":12.3,"memory":{"heapUsedMB":45,"heapTotalMB":64,"rssMB":92}}
+```
 
 ## Architecture
 
@@ -27,16 +29,19 @@ curl http://localhost:3000/health
 GitHub Webhook → Probot → Review Queue → AI Engine (DeepSeek v4-pro)
                              │                    │
                        Diff Pipeline      Security Scanner
-                       Context Builder    FP Post-Processor
+                       Context Builder    Post-Processor
                              │                    │
-                       Comment Manager ← Review Report ←──┘
+                       Signal Booster ←──────┘
+                             │
+                       Comment Manager → PR Comment
 ```
 
 ### Module Map
 
 | Module | Path | Purpose |
 |--------|------|---------|
-| Server | `src/server.ts` | HTTP server, env validation, health check, graceful shutdown |
+| Config Defaults | `src/defaults.ts` | Pre-configured credentials — zero-setup for evaluation |
+| Server | `src/server.ts` | HTTP server, config loading, health check, graceful shutdown |
 | Probot App | `src/index.ts` | Webhook event routing, full pipeline orchestration |
 | Types | `src/types/index.ts` | Core interfaces & enums (RiskLevel, ReviewReport, AIProvider, etc.) |
 | Diff Pipeline | `src/services/diff-pipeline.ts` | Noise filtering, token budgeting, file prioritization |
@@ -47,6 +52,7 @@ GitHub Webhook → Probot → Review Queue → AI Engine (DeepSeek v4-pro)
 | Output Parser | `src/services/output-parser.ts` | 3-tier: JSON → regex → empty fallback (never throws) |
 | Review Queue | `src/queue/review-queue.ts` | In-memory queue with retry, exponential backoff, dedup, dead-letter |
 | Comment Manager | `src/services/comment-manager.ts` | Placeholder → seamless replace, delay notices, Markdown rendering |
+| **Signal Booster** | `src/services/signal-booster.ts` | Dedup, smart ranking, noise suppression, alert clustering, signal quality |
 | Security Scanner | `src/security/rules-engine.ts` | 14 rules: XSS, injection, secrets, SSRF, path traversal, auth, crypto |
 | Security Rules | `src/security/rules-registry.ts` | Rule definitions with CWE/OWASP references |
 | FP Control | `src/services/review-post-processor.ts` | False positive detection, confidence adjustment, cross-validation |
@@ -63,7 +69,7 @@ Credentials are baked into `src/defaults.ts` — no setup needed. To use your ow
 | Variable | Description |
 |----------|-------------|
 | `APP_ID` | GitHub App ID |
-| `PRIVATE_KEY` | GitHub App private key (PEM, quoted with `\n` newlines) |
+| `PRIVATE_KEY` | GitHub App private key (PEM) |
 | `WEBHOOK_SECRET` | GitHub App webhook secret |
 | `DEEPSEEK_API_KEY` | DeepSeek API key |
 | `DEEPSEEK_BASE_URL` | DeepSeek API base URL (default: `https://api.deepseek.com/v1`) |
@@ -78,7 +84,7 @@ Credentials are baked into `src/defaults.ts` — no setup needed. To use your ow
    - **Issues** — Read & Write
    - **Metadata** — Read (mandatory)
 2. Subscribe to events: **Pull request** (opened, synchronize) and **Issue comment** (created)
-3. Download the private key and configure the `.env` variables above
+3. Download the private key and set the environment variables above
 4. Set the Webhook URL to `https://your-domain.com/api/github/webhooks` (use ngrok for local testing)
 5. Install the App on your target repository
 
@@ -97,27 +103,31 @@ Comment on any PR to trigger actions:
 
 Each review produces a structured GitHub comment:
 
+- **Signal Quality Badge** — SNR, trust score, dedup/noise counts at a glance
+- **Risk Clusters** — Related alerts grouped (e.g. "SQL injection x 4 files")
 - **Summary** — One-sentence change overview
 - **Risk Table** — Critical and Warning items with file, line, and fix suggestions
 - **Fix Suggestions** — Executable code snippets with syntax highlighting
 - **Quality Score** — 0–10 with label
 - **Suggested Labels** — Auto-suggested GitHub labels
 - **CWE/OWASP References** — For security-rule matches
+- **Suppressed Alerts** — Collapsed section showing filtered noise (transparent)
 
 Long reports auto-fold with `<details>`/`<summary>` tags to keep the PR thread readable.
 
 ## Testing
 
 ```bash
-# Run the test suite
+# Run all tests
 npm test
 
-# Run all test files
-for f in scripts/test-*.ts; do npx tsx --env-file=.env "$f"; done
+# Run all test suites
+for f in scripts/test-*.ts; do npx tsx "$f"; done
 
 # Run a specific suite
-npx tsx --env-file=.env scripts/test-security-rules.ts
-npx tsx --env-file=.env scripts/test-user-handler.ts
+npx tsx scripts/test-signal-booster.ts
+npx tsx scripts/test-security-rules.ts
+npx tsx scripts/test-user-handler.ts
 ```
 
 ## Project Structure
@@ -127,6 +137,7 @@ X-Reviewer/
 ├── src/
 │   ├── index.ts                  # Probot app entry (pipeline orchestration)
 │   ├── server.ts                 # HTTP server + graceful shutdown
+│   ├── defaults.ts               # Pre-configured credentials
 │   ├── types/index.ts            # TypeScript interfaces & enums
 │   ├── services/
 │   │   ├── diff-pipeline.ts
@@ -136,8 +147,9 @@ X-Reviewer/
 │   │   ├── output-parser.ts
 │   │   ├── comment-manager.ts
 │   │   ├── review-post-processor.ts
+│   │   ├── signal-booster.ts     # ★ Signal booster — dedup, rank, cluster
 │   │   ├── rate-limiter.ts
-│   │   └── user-handler.ts       # Demo module (intentionally vulnerable, for AI review testing)
+│   │   └── user-handler.ts       # Demo module (intentionally vulnerable)
 │   ├── queue/
 │   │   └── review-queue.ts
 │   ├── security/
@@ -152,8 +164,8 @@ X-Reviewer/
 │       ├── logger.ts
 │       └── error-handler.ts
 ├── scripts/                      # Test suites (14 files)
+│   ├── test-signal-booster.ts
 │   └── test-*.ts
-├── .env                          # Pre-configured credentials
 ├── .env.example                  # Template for custom deployments
 ├── start.sh / start.bat          # One-click startup scripts
 ├── Dockerfile
