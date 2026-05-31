@@ -4,40 +4,118 @@ import type { ReviewReport, RiskItem } from '../types/index.js';
 /**
  * Structured output parser with three-tier fallback:
  *
- *   Tier 1 – Direct JSON parse (handles both bare JSON and markdown-fenced)
+ *   Tier 1 – Direct JSON parse (handles bare JSON and markdown-fenced)
  *   Tier 2 – Regex extraction from unstructured text
  *   Tier 3 – Empty report as last resort (never throws)
  */
 
 // ---- Tier 1: JSON extraction ----
 
-function extractJson(raw: string): string | null {
-  let text = raw.trim();
+/**
+ * Strip common AI model wrappers that aren't JSON:
+ * - Markdown code fences (```json ... ```)
+ * - 思考/thinking/reasoning tags from DeepSeek R1-style models
+ */
+function stripAiWrappers(text: string): string {
+  let t = text.trim();
 
-  // Strip markdown code fences
-  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  // Remove markdown code fences
+  const fenceMatch = t.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (fenceMatch) {
-    text = fenceMatch[1].trim();
+    t = fenceMatch[1].trim();
   }
 
-  // Try to find a JSON object boundary
-  const braceStart = text.indexOf('{');
-  if (braceStart === -1) return null;
+  // Remove 思考/thinking blocks (DeepSeek R1 reasoning)
+  t = t.replace(/<思考>[\s\S]*?<\/思考>/g, '');
+  t = t.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '');
+  t = t.replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, '');
 
-  // Find the matching closing brace
+  return t.trim();
+}
+
+/**
+ * Extract a self-contained JSON object from `text` starting at `startPos`,
+ * correctly skipping braces inside strings. Returns the JSON slice or null.
+ */
+function extractJsonAt(text: string, startPos: number): string | null {
   let depth = 0;
-  let end = -1;
-  for (let i = braceStart; i < text.length; i++) {
-    if (text[i] === '{') depth++;
-    if (text[i] === '}') depth--;
+  let inString = false;
+  let escape = false;
+
+  for (let i = startPos; i < text.length; i++) {
+    const ch = text[i];
+
+    if (escape) {
+      escape = false;
+      continue;
+    }
+
+    if (ch === '\\' && inString) {
+      escape = true;
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) continue;
+
+    if (ch === '{') depth++;
+    if (ch === '}') depth--;
     if (depth === 0) {
-      end = i + 1;
-      break;
+      return text.slice(startPos, i + 1);
     }
   }
 
-  if (end === -1) return null;
-  return text.slice(braceStart, end);
+  return null;
+}
+
+/** Fields we expect in the review JSON — used to pick the best candidate. */
+const REVIEW_FIELDS = ['summary', 'risks', 'overallScore'];
+
+function isReviewJson(obj: unknown): obj is Record<string, unknown> {
+  if (!obj || typeof obj !== 'object') return false;
+  const keys = Object.keys(obj as object);
+  return REVIEW_FIELDS.every((f) => keys.includes(f));
+}
+
+function extractJson(raw: string): string | null {
+  const text = stripAiWrappers(raw);
+  if (!text.length) return null;
+
+  // Collect all JSON-object candidates
+  const candidates: string[] = [];
+  let pos = 0;
+  while ((pos = text.indexOf('{', pos)) !== -1) {
+    const candidate = extractJsonAt(text, pos);
+    if (candidate) {
+      candidates.push(candidate);
+      pos += candidate.length;
+    } else {
+      pos++;
+    }
+  }
+
+  if (candidates.length === 0) return null;
+
+  // If the first candidate looks like a review report, use it
+  for (const c of candidates) {
+    try {
+      const parsed = JSON.parse(c);
+      if (isReviewJson(parsed)) return c;
+    } catch {
+      // try next
+    }
+  }
+
+  // Fallback: return the largest JSON-looking candidate
+  let best = candidates[0];
+  for (let i = 1; i < candidates.length; i++) {
+    if (candidates[i].length > best.length) best = candidates[i];
+  }
+  return best;
 }
 
 function safeNumber(value: unknown, fallback: number): number {
