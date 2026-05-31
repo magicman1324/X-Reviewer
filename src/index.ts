@@ -63,18 +63,19 @@ export default (app: Probot) => {
     );
   });
 
-  app.on('pull_request.opened', async (context) => {
+  async function handlePREvent(context: any, trigger: TriggerSource) {
     const pr = context.payload.pull_request;
     const { owner, repo } = context.repo();
+    const phase = trigger === TriggerSource.PR_Opened ? 'pr_opened' : 'pr_synchronize';
 
-    app.log.info(`PR #${pr.number} opened: ${pr.title}`);
+    app.log.info(`PR #${pr.number} ${trigger}: ${pr.title}`);
 
     try {
       const client = GitHubClient.fromContext(context);
       const reviewRequest = await buildContext({
         client,
         prNumber: pr.number,
-        trigger: TriggerSource.PR_Opened,
+        trigger,
       });
       const instId = context.payload.installation?.id;
       if (!instId) {
@@ -89,9 +90,12 @@ export default (app: Probot) => {
 
       app.log.info(`Review enqueued for PR #${pr.number}`);
     } catch (err) {
-      handleError(err as Error, { prNumber: pr.number, owner, repo, phase: 'pr_opened' });
+      handleError(err as Error, { prNumber: pr.number, owner, repo, phase });
     }
-  });
+  }
+
+  app.on('pull_request.opened', (context) => handlePREvent(context, TriggerSource.PR_Opened));
+  app.on('pull_request.synchronize', (context) => handlePREvent(context, TriggerSource.PR_Synchronize));
 
   app.on('installation.created', async (context) => {
     const account = context.payload.installation.account;
