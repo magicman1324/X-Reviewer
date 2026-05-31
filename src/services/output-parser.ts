@@ -24,12 +24,33 @@ function extractJson(raw: string): string | null {
   const braceStart = text.indexOf('{');
   if (braceStart === -1) return null;
 
-  // Find the matching closing brace
+  // Find the matching closing brace, skipping braces inside strings
   let depth = 0;
+  let inString = false;
+  let escape = false;
   let end = -1;
   for (let i = braceStart; i < text.length; i++) {
-    if (text[i] === '{') depth++;
-    if (text[i] === '}') depth--;
+    const ch = text[i];
+
+    if (escape) {
+      escape = false;
+      continue;
+    }
+
+    if (ch === '\\' && inString) {
+      escape = true;
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) continue;
+
+    if (ch === '{') depth++;
+    if (ch === '}') depth--;
     if (depth === 0) {
       end = i + 1;
       break;
