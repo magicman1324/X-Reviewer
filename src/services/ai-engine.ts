@@ -1,3 +1,6 @@
+import { writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { AIProvider, AIChatMessage, ReviewReport, ReviewRequest } from '../types/index.js';
 import { buildPrompt } from './prompt-builder.js';
 import type { CustomReviewRule } from './prompt-builder.js';
@@ -41,9 +44,12 @@ export class AIEngine {
       `[AI] model=${result.provider} tokens=${result.usage.totalTokens} latency=${result.latencyMs}ms`,
     );
 
-    // Debug: log raw response for parser diagnostics
+    // Debug: write raw response to temp file for parser diagnostics
+    const debugPath = join(tmpdir(), `xreviewer-raw-${Date.now()}.txt`);
+    writeFileSync(debugPath, result.raw, 'utf-8');
+    log.info(`[AI] raw response written to ${debugPath}`);
+    log.info(`[AI] model=${result.provider} tokens=${result.usage.totalTokens} latency=${result.latencyMs}ms`);
     log.info(`[AI] raw first 500 chars: ${result.raw.slice(0, 500)}`);
-    log.info(`[AI] raw last 200 chars: ${result.raw.slice(-200)}`);
 
     return parseReviewReport(result.raw, request);
   }
