@@ -137,6 +137,7 @@ export interface AIChatResponse {
   raw: string;
   usage: AITokenUsage;
   latencyMs: number;
+  finishReason?: string;
 }
 
 /** Token usage from the model API. */

@@ -1,4 +1,4 @@
-import { writeFileSync, existsSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { AIProvider, AIChatMessage, ReviewReport, ReviewRequest } from '../types/index.js';
@@ -40,8 +40,9 @@ export class AIEngine {
 
     const result = await this.callWithFallback(messages, log);
 
+    const fr = result.finishReason ? ` finish=${result.finishReason}` : '';
     log.info(
-      `[AI] model=${result.provider} tokens=${result.usage.totalTokens} latency=${result.latencyMs}ms`,
+      `[AI] model=${result.provider} tokens=${result.usage.totalTokens} latency=${result.latencyMs}ms${fr}`,
     );
 
     // Debug: write raw response to temp file for parser diagnostics
@@ -65,6 +66,7 @@ export class AIEngine {
     usage: { totalTokens: number };
     latencyMs: number;
     provider: string;
+    finishReason?: string;
   }> {
     try {
       const response = await this.primary.analyze(messages);

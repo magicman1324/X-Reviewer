@@ -49,7 +49,7 @@ export class DeepSeekProvider implements AIProvider {
           model: this.model,
           messages,
           temperature: 0.1,
-          max_tokens: 4096,
+          max_tokens: 16384,
           stream: false,
         }),
         signal: controller.signal,
@@ -72,8 +72,9 @@ export class DeepSeekProvider implements AIProvider {
       };
 
       const raw = data.choices?.[0]?.message?.content ?? '';
+      const finishReason = data.choices?.[0]?.finish_reason ?? 'unknown';
 
-      return { raw, usage, latencyMs };
+      return { raw, usage, latencyMs, finishReason };
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === 'AbortError') {
         throw new Error(`DeepSeek API timeout after ${this.timeoutMs}ms`);
