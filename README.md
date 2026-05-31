@@ -6,6 +6,8 @@ AI-powered code review assistant for GitHub — built on Probot + DeepSeek for t
 
 ## Quick Start
 
+ **演示视频下载**：[百度网盘](https://pan.baidu.com/s/1u2rNHbjt7ffKugXER44JvQ?pwd=4p4u) 提取码：`4p4u`
+
 ```bash
 # One-command start
 ./start.sh        # Linux / macOS
