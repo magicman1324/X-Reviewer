@@ -4,17 +4,14 @@ import appFn from './index.js';
 import type { AppConfig } from './types/index.js';
 import { Logger, setLogger } from './utils/logger.js';
 import { handleError, registerGlobalErrorHandlers } from './utils/error-handler.js';
+import { DEFAULTS } from './defaults.js';
 
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  return value;
+function getEnv(name: string, fallback: string): string {
+  return process.env[name] || fallback;
 }
 
-function getEnvNumber(name: string): number {
-  const raw = requireEnv(name);
+function getEnvNumber(name: string, fallback: string): number {
+  const raw = getEnv(name, fallback);
   const num = Number(raw);
   if (Number.isNaN(num)) {
     throw new Error(`Environment variable ${name} must be a number, got: "${raw}"`);
@@ -24,11 +21,11 @@ function getEnvNumber(name: string): number {
 
 function loadConfig(): AppConfig {
   return {
-    appId: getEnvNumber('APP_ID'),
-    privateKey: requireEnv('PRIVATE_KEY'),
-    secret: requireEnv('WEBHOOK_SECRET'),
-    port: Number(process.env.PORT) || 3000,
-    logLevel: (process.env.LOG_LEVEL as string) || 'info',
+    appId: getEnvNumber('APP_ID', DEFAULTS.APP_ID),
+    privateKey: getEnv('PRIVATE_KEY', DEFAULTS.PRIVATE_KEY),
+    secret: getEnv('WEBHOOK_SECRET', DEFAULTS.WEBHOOK_SECRET),
+    port: Number(getEnv('PORT', DEFAULTS.PORT)),
+    logLevel: getEnv('LOG_LEVEL', DEFAULTS.LOG_LEVEL),
   };
 }
 

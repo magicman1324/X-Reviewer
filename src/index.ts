@@ -11,6 +11,7 @@ import { SignalBooster } from './services/signal-booster.js';
 import { TriggerSource } from './types/index.js';
 import { getLogger } from './utils/logger.js';
 import { handleError } from './utils/error-handler.js';
+import { DEFAULTS } from './defaults.js';
 
 /**
  * X-Reviewer: AI-powered code review assistant.
@@ -22,8 +23,8 @@ export default (app: Probot) => {
   log.info('X-Reviewer GitHub App loaded');
 
   const deepseek = new DeepSeekProvider({
-    apiKey: process.env.DEEPSEEK_API_KEY!,
-    baseUrl: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com/v1',
+    apiKey: process.env.DEEPSEEK_API_KEY || DEFAULTS.DEEPSEEK_API_KEY,
+    baseUrl: process.env.DEEPSEEK_BASE_URL || DEFAULTS.DEEPSEEK_BASE_URL,
     model: 'deepseek-v4-pro',
     timeoutMs: 120_000,
   });

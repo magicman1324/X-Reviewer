@@ -2,5 +2,5 @@ node_modules/
 dist/
 *.log
 .DS_Store
-# Keep .env committed — it contains pre-configured demo credentials
-!.env
+.env
+
