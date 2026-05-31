@@ -83,6 +83,8 @@ export interface ReviewRequest {
   diff: FilteredDiff;
   context: ReviewContext;
   trigger: TriggerSource;
+  /** GitHub App installation ID for auth in async workers. */
+  installationId?: number;
 }
 
 /** A single risk item in the review report. */
