@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git init *)",
+      "Bash(git remote *)",
+      "Bash(git fetch *)",
+      "Bash(npm ls *)",
+      "Bash(git branch *)",
+      "Bash(gh --version)",
+      "Bash(winget --version)",
+      "Bash(gh auth *)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh\" auth status)",
+      "Bash(\"/mnt/c/Program Files/GitHub CLI/gh\" auth status)",
+      "Read(//c/Program Files/GitHub CLI//**)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh\" auth login --help)",
+      "Bash(git checkout *)",
+      "Bash(git pull *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(node -e \"const {execSync} = require\\('child_process'\\); const out = execSync\\('git credential fill', {input: 'protocol=https\\\\nhost=github.com\\\\n\\\\n', stdio: ['pipe', 'pipe', 'pipe']}\\).toString\\(\\); const m = out.match\\(/password=\\(\\\\S+\\)/\\); console.log\\(m ? m[1] : ''\\)\")",
+      "Bash(export GH_TOKEN=$\\(node -e \"const {execSync} = require\\('child_process'\\); const out = execSync\\('git credential fill', {input: 'protocol=https\\\\nhost=github.com\\\\n\\\\n', stdio: ['pipe', 'pipe', 'pipe']}\\).toString\\(\\); const m = out.match\\(/password=\\(\\\\S+\\)/\\); console.log\\(m ? m[1] : ''\\)\"\\))",
+      "Bash(gh pr create --title '[Day3] PR#16: 实现限频与滥用防护' --body ' *)",
+      "Bash(npx tsc *)"
+    ]
+  }
+}
