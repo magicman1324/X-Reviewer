@@ -7,6 +7,7 @@ import { CommentManager } from './services/comment-manager.js';
 import { ReviewQueue } from './queue/review-queue.js';
 import { SecurityScanner } from './security/rules-engine.js';
 import { ReviewPostProcessor } from './services/review-post-processor.js';
+import { SignalBooster } from './services/signal-booster.js';
 import { TriggerSource } from './types/index.js';
 import { getLogger } from './utils/logger.js';
 import { handleError } from './utils/error-handler.js';
@@ -14,7 +15,7 @@ import { handleError } from './utils/error-handler.js';
 /**
  * X-Reviewer: AI-powered code review assistant.
  *
- * Pipeline: Webhook → Diff → Context → Prompt → DeepSeek → Parse → Comment
+ * Pipeline: Webhook → Diff → Context → Prompt → DeepSeek → Parse → PostProcess → SignalBoost → Comment
  */
 export default (app: Probot) => {
   const log = getLogger();
@@ -32,6 +33,7 @@ export default (app: Probot) => {
   const reviewQueue = new ReviewQueue(2, { maxAttempts: 2, backoffBaseMs: 3000 });
   const securityScanner = new SecurityScanner();
   const postProcessor = new ReviewPostProcessor();
+  const signalBooster = new SignalBooster(25);
 
   reviewQueue.process(async (job) => {
     const { request, commentId } = job;
@@ -52,8 +54,13 @@ export default (app: Probot) => {
       risks: postProcessor.crossValidate(merged, securityResult.risks),
     });
 
-    await commentManager.publishReport(client, commentId, processed);
-    log.info(`Review done PR #${request.prNumber}: score=${processed.overallScore.toFixed(1)} risks=${processed.risks.length}`);
+    const boosted = signalBooster.boost(processed);
+
+    await commentManager.publishReport(client, commentId, boosted);
+    const sq = boosted.signalQuality;
+    log.info(
+      `Review done PR #${request.prNumber}: score=${boosted.overallScore.toFixed(1)} risks=${boosted.risks.filter((r) => !r.isNoise).length}/${boosted.risks.length} SNR=${(sq.signalToNoiseRatio * 100).toFixed(0)}% trust=${(sq.overallTrust * 100).toFixed(0)}% dedup=${sq.duplicateCount} noise=${sq.suppressedCount}`,
+    );
   });
 
   app.on('pull_request.opened', async (context) => {
