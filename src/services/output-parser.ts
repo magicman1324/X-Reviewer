@@ -4,7 +4,7 @@ import type { ReviewReport, RiskItem } from '../types/index.js';
 /**
  * Structured output parser with three-tier fallback:
  *
- *   Tier 1 – Direct JSON parse (handles both bare JSON and markdown-fenced)
+ *   Tier 1 – Direct JSON parse (handles bare JSON and markdown-fenced)
  *   Tier 2 – Regex extraction from unstructured text
  *   Tier 3 – Empty report as last resort (never throws)
  */
