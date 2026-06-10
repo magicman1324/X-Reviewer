@@ -13,7 +13,7 @@
     "format": "prettier --write \"src/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --env-file=.env scripts/test-user-handler.ts"
+    "test": "tsx scripts/test-runner.ts"
   },
   "repository": {
     "type": "git",
