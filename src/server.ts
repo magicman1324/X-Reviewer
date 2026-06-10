@@ -116,6 +116,7 @@ async function main() {
 
 main().catch((err) => {
   const classified = handleError(err, { phase: 'startup' });
+  // eslint-disable-next-line no-console -- logger not initialized yet at startup
   console.error(`Fatal startup error [${classified.category}]: ${classified.message}`);
   process.exit(1);
 });

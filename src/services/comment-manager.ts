@@ -1,6 +1,6 @@
 import type { GitHubClient } from '../utils/github-client.js';
 import type { ReviewReport } from '../types/index.js';
-import type { BoostedReport, SignalQuality, AlertCluster } from './signal-booster.js';
+import type { BoostedReport, BoostedRiskItem, SignalQuality, AlertCluster } from './signal-booster.js';
 
 const PLACEHOLDERS = [
   '🤖 *X-Reviewer is scanning the diff with laser focus...*',
@@ -197,8 +197,8 @@ export function formatReportComment(report: ReviewReport | BoostedReport): strin
   }
 
   // Split risks into active and suppressed
-  const activeRisks = sq ? report.risks.filter((r: any) => !r.isNoise) : report.risks;
-  const suppressedRisks = sq ? report.risks.filter((r: any) => r.isNoise) : [];
+  const activeRisks = sq ? report.risks.filter((r) => !(r as BoostedRiskItem).isNoise) : report.risks;
+  const suppressedRisks = sq ? report.risks.filter((r) => (r as BoostedRiskItem).isNoise) : [];
 
   if (activeRisks.length > 0) {
     const longRisk = activeRisks.length > RISK_FOLD_THRESHOLD;
@@ -230,7 +230,7 @@ export function formatReportComment(report: ReviewReport | BoostedReport): strin
     }
   }
 
-  const fixRisks = activeRisks.filter((r: any) => r.fixCode);
+  const fixRisks = activeRisks.filter((r) => r.fixCode);
   if (fixRisks.length > 0) {
     const longFix = fixRisks.length > FIX_FOLD_THRESHOLD;
     if (longFix) {
@@ -285,7 +285,7 @@ export function formatReportComment(report: ReviewReport | BoostedReport): strin
     lines.push('');
     lines.push('| 文件 | 行号 | 问题 | 抑制原因 |');
     lines.push('|------|------|------|----------|');
-    for (const risk of suppressedRisks as any[]) {
+    for (const risk of suppressedRisks as BoostedRiskItem[]) {
       lines.push(
         `| \`${risk.file}\` | L${risk.line} | ${escapeCell(risk.title)} | ${escapeCell(risk.noiseReason ?? '-')} |`,
       );
