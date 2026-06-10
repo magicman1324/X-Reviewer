@@ -158,7 +158,7 @@ console.log('\nTest 7: Language hint detection');
     if (expected) {
       assert(`hint for ${input}`, user.includes('```' + expected));
     } else {
-      assert(`no hint for ${input}`, user.includes('```\n'));
+      assert(`no hint for ${input}`, /```\r?\n/.test(user));
     }
   }
 }
