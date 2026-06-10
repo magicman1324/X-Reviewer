@@ -12,6 +12,11 @@ import { TriggerSource } from './types/index.js';
 import { getLogger } from './utils/logger.js';
 import { handleError } from './utils/error-handler.js';
 
+interface PRPayload {
+  payload: { pull_request: { number: number; title: string }; installation?: { id: number } };
+  repo(): { owner: string; repo: string };
+}
+
 /**
  * X-Reviewer: AI-powered code review assistant.
  *
@@ -63,7 +68,7 @@ export default (app: Probot) => {
     );
   });
 
-  async function handlePREvent(context: any, trigger: TriggerSource) {
+  async function handlePREvent(context: PRPayload, trigger: TriggerSource) {
     const pr = context.payload.pull_request;
     const { owner, repo } = context.repo();
     const phase = trigger === TriggerSource.PR_Opened ? 'pr_opened' : 'pr_synchronize';
@@ -71,7 +76,8 @@ export default (app: Probot) => {
     app.log.info(`PR #${pr.number} ${trigger}: ${pr.title}`);
 
     try {
-      const client = GitHubClient.fromContext(context);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Probot context union type is too complex; we use a minimal interface
+      const client = GitHubClient.fromContext(context as any);
       const reviewRequest = await buildContext({
         client,
         prNumber: pr.number,

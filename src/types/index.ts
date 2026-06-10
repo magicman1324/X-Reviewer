@@ -1,5 +1,3 @@
-/* eslint-disable no-unused-vars -- type definitions used by downstream modules */
-
 /** Risk severity level for reviewed issues. */
 export enum RiskLevel {
   /** Potential crash, security vuln, or data loss — must fix. */

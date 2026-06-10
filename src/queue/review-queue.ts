@@ -20,7 +20,6 @@ const DEFAULT_OPTIONS: Required<QueueOptions> = {
   removeOnComplete: true,
 };
 
-// eslint-disable-next-line no-unused-vars
 export type JobHandler = (job: QueueJob) => Promise<void>;
 
 /**
